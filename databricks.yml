@@ -1,0 +1,46 @@
+# This is a Declarative Automation Bundle definition for databricks_free_demo.
+# See https://docs.databricks.com/dev-tools/bundles/index.html for documentation.
+bundle:
+  name: databricks_free_demo
+  uuid: 970fed3c-3455-47cd-925f-a9cd8a8c4de7
+
+include:
+  - resources/*.yml
+
+artifacts:
+  python_artifact:
+    type: whl
+    build: uv build --wheel
+
+# Variable declarations. These variables are assigned in the dev/prod targets below.
+variables:
+  catalog:
+    description: The catalog to use
+  schema:
+    description: The schema to use
+
+targets:
+  dev:
+    # The default target uses 'mode: development' to create a development copy.
+    # - Deployed resources get prefixed with '[dev my_user_name]'
+    # - Any job schedules and triggers are paused by default.
+    # See also https://docs.databricks.com/dev-tools/bundles/deployment-modes.html.
+    mode: development
+    default: true
+    workspace:
+      host: https://dbc-f20c16c0-9020.cloud.databricks.com
+    variables:
+      catalog: workspace
+      schema: ${workspace.current_user.short_name}
+  prod:
+    mode: production
+    workspace:
+      host: https://dbc-f20c16c0-9020.cloud.databricks.com
+      # We explicitly deploy to /Workspace/Users/03ac4024-7f63-4bcf-824c-9ea813725a00 to make sure we only have a single copy.
+      root_path: /Workspace/Users/03ac4024-7f63-4bcf-824c-9ea813725a00/.bundle/${bundle.name}/${bundle.target}
+    variables:
+      catalog: workspace
+      schema: prod
+    permissions:
+      - service_principal_name: 03ac4024-7f63-4bcf-824c-9ea813725a00
+        level: CAN_MANAGE
