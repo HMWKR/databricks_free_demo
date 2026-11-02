@@ -1,0 +1,40 @@
+resources:
+  jobs:
+    bike:                               # Job key — --key로 지정, bundle run에서 사용
+      name: bike                        # 화면에 표시되는 Job 이름 (dev 배포 시 [dev 사용자명] 접두어 추가)
+      git_source:                       # 실행할 때마다 GitHub에서 코드를 가져옴
+        git_url: ${bundle.git.origin_url}   # databricks.yml의 git.origin_url로 자동 치환
+        git_provider: gitHub
+        git_branch: ${bundle.git.branch}    # dev 배포 → dev, prod 배포 → main으로 자동 치환
+      trigger:
+        pause_status: UNPAUSED          # 자동 실행 (dev·prod 모두 적용)
+        periodic:
+          interval: 3                   # 3시간마다 실행
+          unit: HOURS
+      tasks:
+        - task_key: bronze              # 태스크 이름 — depends_on에서 참조
+          notebook_task:
+            notebook_path: src/01_bronze_bike_station   # 저장소 루트 기준 경로 (확장자 제외)
+            source: GIT                 # GitHub 저장소의 노트북을 실행
+          environment_key: Default      # 아래 environments의 서버리스 환경 사용
+        - task_key: silver
+          depends_on:
+            - task_key: bronze          # bronze가 끝난 뒤 실행
+          notebook_task:
+            notebook_path: src/02_silver_bike_station
+            source: GIT
+          environment_key: Default
+        - task_key: gold
+          depends_on:
+            - task_key: silver          # silver가 끝난 뒤 실행
+          notebook_task:
+            notebook_path: src/03_gold_bike_station_usage
+            source: GIT
+          environment_key: Default
+      queue:
+        enabled: true                   # 동시 실행 한도에 걸리면 대기 후 실행
+      environments:
+        - environment_key: Default
+          spec:
+            environment_version: "6"    # 서버리스 환경 버전
+      performance_target: PERFORMANCE_OPTIMIZED   # 서버리스 Job의 성능 모드
